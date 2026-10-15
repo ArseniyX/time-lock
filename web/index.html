@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Time Lock</title>
+<meta name="description" content="Lock a random code until a time you choose, with drand timelock encryption.">
+<style>
+:root {
+    --bg: #f6f5f2;
+    --surface: #ffffff;
+    --text: #1d1d1b;
+    --muted: #6b6a66;
+    --border: #e2e0da;
+    --accent: #2f5bd3;
+    --accent-text: #ffffff;
+    --danger: #b3261e;
+    --ok: #1e7b45;
+    --code-bg: #f0efea;
+    color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --bg: #141413;
+        --surface: #1f1f1d;
+        --text: #ecebe6;
+        --muted: #9c9a93;
+        --border: #34332f;
+        --accent: #7b9cff;
+        --accent-text: #0d1430;
+        --danger: #f2827a;
+        --ok: #6fcf97;
+        --code-bg: #2a2a27;
+        color-scheme: dark;
+    }
+}
+:root[data-theme="dark"] {
+    --bg: #141413;
+    --surface: #1f1f1d;
+    --text: #ecebe6;
+    --muted: #9c9a93;
+    --border: #34332f;
+    --accent: #7b9cff;
+    --accent-text: #0d1430;
+    --danger: #f2827a;
+    --ok: #6fcf97;
+    --code-bg: #2a2a27;
+    color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 640px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 1.6rem; margin: 0 0 4px; }
+h2 { font-size: 1.1rem; margin: 0 0 16px; }
+p { margin: 0 0 12px; }
+.lede { color: var(--muted); margin-bottom: 28px; }
+a { color: var(--accent); }
+
+.card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+label { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 6px; }
+.field { margin-bottom: 16px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.hint { color: var(--muted); font-size: 0.85rem; margin-top: 4px; }
+input, select {
+    font: inherit;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    min-width: 0;
+}
+input[type="text"] { width: 100%; }
+input[type="number"] { width: 90px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 8px; }
+.seg label { margin: 0; font-weight: 500; padding: 6px 14px; cursor: pointer; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label:has(input:checked) { background: var(--accent); color: var(--accent-text); }
+.seg label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+button, .btn {
+    font: inherit;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 8px 14px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}
+button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+button.danger { color: var(--danger); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.error { color: var(--danger); font-size: 0.9rem; min-height: 1.2em; margin-top: 8px; }
+.notice { background: var(--code-bg); border-radius: 8px; padding: 10px 12px; font-size: 0.9rem; }
+
+.lock { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 0; border-top: 1px solid var(--border); }
+.lock:first-child { border-top: 0; padding-top: 0; }
+.lock-name { font-weight: 600; word-break: break-all; }
+.lock-meta { color: var(--muted); font-size: 0.875rem; }
+.state-ready { color: var(--ok); font-weight: 600; }
+.lock-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: flex-start; }
+.lock-actions button { padding: 6px 10px; font-size: 0.875rem; }
+.empty { color: var(--muted); }
+
+dialog {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    color: var(--text);
+    padding: 24px;
+    width: min(480px, calc(100vw - 32px));
+}
+dialog::backdrop { background: rgb(0 0 0 / 0.55); }
+dialog h2 { margin-bottom: 12px; }
+dialog .row { margin-top: 16px; }
+#code-dialog { width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; border: 0; border-radius: 0; display: none; }
+#code-dialog[open] { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.code {
+    font: 600 clamp(1.6rem, 9vw, 3.4rem)/1.3 ui-monospace, "SF Mono", Menlo, monospace;
+    letter-spacing: 0.25em;
+    background: var(--code-bg);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin: 20px 0;
+    max-width: 100%;
+    word-break: break-all;
+}
+.code.long { font-size: clamp(1.1rem, 4.5vw, 1.8rem); letter-spacing: 0.08em; }
+footer { color: var(--muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<main>
+    <h1>Time Lock</h1>
+    <p class="lede">Locks a random code until a time you choose. The code is encrypted to a future round of the
+        <a href="https://drand.love" target="_blank" rel="noopener">drand</a> network, and the key for that round
+        doesn't exist until drand publishes it. Nothing can open a lock early, including you.</p>
+
+    <p class="notice" id="storage-notice" hidden>This browser isn't keeping data for this page, so locks are only
+        kept until you close it. Download every lock file.</p>
+
+    <section class="card">
+        <h2>New lock</h2>
+        <form id="new-form" novalidate>
+            <div class="field">
+                <label for="name">Name</label>
+                <input type="text" id="name" placeholder="screentime" autocomplete="off" spellcheck="false" required>
+            </div>
+
+            <div class="field">
+                <label>Opens</label>
+                <div class="seg" role="radiogroup">
+                    <label><input type="radio" name="when" value="in" checked>In</label>
+                    <label><input type="radio" name="when" value="on">On date</label>
+                </div>
+                <div class="row" id="when-in">
+                    <input type="number" id="amount" min="1" value="14" aria-label="Amount">
+                    <select id="unit" aria-label="Unit">
+                        <option value="60000">minutes</option>
+                        <option value="3600000">hours</option>
+                        <option value="86400000" selected>days</option>
+                        <option value="604800000">weeks</option>
+                    </select>
+                </div>
+                <div class="row" id="when-on" hidden>
+                    <input type="datetime-local" id="date" aria-label="Unlock date and time">
+                </div>
+            </div>
+
+            <div class="field">
+                <label>Code</label>
+                <div class="seg" role="radiogroup">
+                    <label><input type="radio" name="kind" value="digits" checked>Digits</label>
+                    <label><input type="radio" name="kind" value="password">Password</label>
+                </div>
+                <div class="row">
+                    <input type="number" id="length" value="4" aria-label="Length">
+                    <span id="length-hint" class="hint"></span>
+                </div>
+            </div>
+
+            <button type="submit" class="primary">Create lock…</button>
+            <div class="error" id="form-error" role="alert"></div>
+        </form>
+    </section>
+
+    <section class="card">
+        <div class="row" style="justify-content: space-between; margin-bottom: 12px;">
+            <h2 style="margin: 0;">Your locks</h2>
+            <label class="btn" style="margin: 0;">Import…<input type="file" id="import" accept=".json,application/json" multiple hidden></label>
+        </div>
+        <div id="locks"></div>
+        <div class="error" id="list-error" role="alert"></div>
+    </section>
+
+    <footer>
+        <p>Lock files work with the <code>timelock.js</code> command line tool too. After the unlock time, the
+            <code>ciphertext</code> in a lock file also opens at
+            <a href="https://timevault.drand.love" target="_blank" rel="noopener">timevault.drand.love</a>.</p>
+        <p>Start with short locks (a day, then a week) until you trust the setup.</p>
+    </footer>
+</main>
+
+<dialog id="confirm-dialog">
+    <form method="dialog" id="confirm-form">
+        <h2>Lock it?</h2>
+        <p id="confirm-text"></p>
+        <p>Nothing can open it before then, including you.</p>
+        <label for="confirm-input">Type <strong>lock</strong> to go ahead</label>
+        <input type="text" id="confirm-input" autocomplete="off" spellcheck="false" style="width: 100%;">
+        <div class="error" id="confirm-error" role="alert"></div>
+        <div class="row">
+            <button type="submit" class="primary" id="confirm-go" disabled>Lock</button>
+            <button type="button" id="confirm-cancel">Cancel</button>
+        </div>
+    </form>
+</dialog>
+
+<dialog id="save-dialog">
+    <h2>Save the lock file first</h2>
+    <p>If this file is lost, so is the code. Keep a copy somewhere other than this browser, like an email to
+        yourself. It's safe to share: no one can read it before the unlock time.</p>
+    <div class="row">
+        <button type="button" id="save-download">Download file</button>
+        <button type="button" id="save-copy">Copy as text</button>
+    </div>
+    <p class="hint" id="save-status"></p>
+    <div class="row">
+        <button type="button" class="primary" id="save-show" disabled>Show the code</button>
+    </div>
+</dialog>
+
+<dialog id="code-dialog">
+    <div id="code-title" class="lock-meta"></div>
+    <div class="code" id="code-value"></div>
+    <p id="code-text"></p>
+    <button type="button" class="primary" id="code-hide">It's set. Hide the code</button>
+</dialog>
+
+<script type="module">
+import tlock from "./tlock.js";
+
+const { timelockEncrypt, timelockDecrypt, mainnetClient, roundAt, Buffer } = tlock;
+
+const STORE_KEY = "time-lock:locks";
+const PASSWORD_CHARS = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O, 1/l/I
+const $ = (id) => document.getElementById(id);
+
+// Storage
+
+let memoryLocks = {};
+let storageWorks = true;
+
+function loadLocks() {
+    try {
+        const raw = localStorage.getItem(STORE_KEY);
+        memoryLocks = raw ? JSON.parse(raw) : {};
+    } catch {
+        storageWorks = false;
+    }
+    return memoryLocks;
+}
+
+function saveLocks() {
+    try {
+        localStorage.setItem(STORE_KEY, JSON.stringify(memoryLocks));
+    } catch {
+        storageWorks = false;
+    }
+    $("storage-notice").hidden = storageWorks;
+}
+
+// Helpers, matching timelock.js
+
+function randomInt(n) {
+    // Rejection sampling keeps every value equally likely
+    const limit = Math.floor(2 ** 32 / n) * n;
+    const buf = new Uint32Array(1);
+    do crypto.getRandomValues(buf); while (buf[0] >= limit);
+    return buf[0] % n;
+}
+
+function randomCode(kind, length) {
+    if (kind === "password") return Array.from({ length }, () => PASSWORD_CHARS[randomInt(PASSWORD_CHARS.length)]).join("");
+    return Array.from({ length }, () => randomInt(10)).join("");
+}
+
+function left(ms) {
+    const min = Math.ceil(ms / 60e3);
+    const d = Math.floor(min / 1440), h = Math.floor((min % 1440) / 60), m = min % 60;
+    return [d && `${d}d`, h && `${h}h`, (m || (!d && !h)) && `${m}m`].filter(Boolean).join(" ");
+}
+
+function fmt(date) {
+    return date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
+function download(lock) {
+    const blob = new Blob([JSON.stringify(lock, null, 2) + "\n"], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${lock.name}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function isLock(l) {
+    return l && typeof l.name === "string" && /^[\w.-]+$/.test(l.name) && typeof l.kind === "string" &&
+        !isNaN(new Date(l.unlockAt)) && typeof l.ciphertext === "string" && l.ciphertext.includes("AGE ENCRYPTED");
+}
+
+// Code screen
+
+function showCode(title, code, text) {
+    $("code-title").textContent = title;
+    $("code-value").textContent = code.length <= 12 ? code.split("").join(" ") : code;
+    $("code-value").classList.toggle("long", code.length > 12);
+    $("code-text").textContent = text;
+    $("code-dialog").showModal();
+}
+
+$("code-hide").addEventListener("click", () => $("code-dialog").close());
+$("code-dialog").addEventListener("close", () => { $("code-value").textContent = ""; });
+
+// New lock form
+
+const form = $("new-form");
+const whenMode = () => form.querySelector("input[name=when]:checked").value;
+const kindMode = () => form.querySelector("input[name=kind]:checked").value;
+
+function syncForm() {
+    $("when-in").hidden = whenMode() !== "in";
+    $("when-on").hidden = whenMode() !== "on";
+    const pw = kindMode() === "password";
+    $("length").min = pw ? 8 : 4;
+    $("length").max = pw ? 64 : 12;
+    $("length-hint").textContent = pw ? "characters (8–64), for an admin password" : "digits (4–12). Screen Time uses 4";
+}
+
+form.querySelectorAll("input[name=kind]").forEach((r) => r.addEventListener("change", () => {
+    $("length").value = kindMode() === "password" ? 20 : 4;
+    syncForm();
+}));
+form.querySelectorAll("input[name=when]").forEach((r) => r.addEventListener("change", syncForm));
+syncForm();
+
+function readForm() {
+    const name = $("name").value.trim();
+    if (!name) throw new Error("Give the lock a name, like screentime.");
+    if (!/^[\w.-]+$/.test(name)) throw new Error("Use letters, digits, '.', '_' or '-' in the name.");
+    if (memoryLocks[name]) throw new Error(`A lock called "${name}" already exists.`);
+
+    let unlockAt;
+    if (whenMode() === "in") {
+        const amount = Number($("amount").value);
+        if (!(amount > 0)) throw new Error("Enter how long to lock it for.");
+        unlockAt = new Date(Date.now() + amount * Number($("unit").value));
+    } else {
+        unlockAt = new Date($("date").value);
+        if (isNaN(unlockAt)) throw new Error("Pick an unlock date and time.");
+    }
+    if (unlockAt - Date.now() < 60e3) throw new Error("Pick an unlock time at least a minute from now.");
+
+    const kind = kindMode();
+    const length = Number($("length").value);
+    const [lo, hi] = kind === "password" ? [8, 64] : [4, 12];
+    if (!(Number.isInteger(length) && length >= lo && length <= hi)) throw new Error(`Length must be from ${lo} to ${hi}.`);
+    return { name, unlockAt, kind, length };
+}
+
+let pending = null;
+
+form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    $("form-error").textContent = "";
+    try {
+        pending = readForm();
+    } catch (err) {
+        $("form-error").textContent = err.message;
+        return;
+    }
+    const { name, unlockAt, kind, length } = pending;
+    const what = kind === "password" ? `${length}-character password` : `${length}-digit code`;
+    $("confirm-text").textContent = `New ${what} "${name}", locked until ${fmt(unlockAt)} (${left(unlockAt - Date.now())} from now).`;
+    $("confirm-input").value = "";
+    $("confirm-go").disabled = true;
+    $("confirm-error").textContent = "";
+    $("confirm-dialog").showModal();
+});
+
+$("confirm-input").addEventListener("input", () => {
+    $("confirm-go").disabled = $("confirm-input").value.trim().toLowerCase() !== "lock";
+});
+$("confirm-cancel").addEventListener("click", () => $("confirm-dialog").close());
+
+$("confirm-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const go = $("confirm-go");
+    go.disabled = true;
+    go.textContent = "Locking…";
+    try {
+        await createLock(pending);
+        $("confirm-dialog").close();
+    } catch (err) {
+        $("confirm-error").textContent = `Couldn't reach drand: ${err.message}. Check your connection and try again.`;
+        go.disabled = false;
+    } finally {
+        go.textContent = "Lock";
+    }
+});
+
+async function createLock({ name, unlockAt, kind, length }) {
+    const client = mainnetClient();
+    const info = await client.chain().info();
+    const round = roundAt(unlockAt.getTime(), info);
+    let code = randomCode(kind, length);
+    const ciphertext = await timelockEncrypt(round, Buffer.from(code), client);
+    const lock = {
+        name,
+        kind: kind === "password" ? `${length}-character password` : `${length}-digit code`,
+        lockedAt: new Date().toISOString(),
+        unlockAt: unlockAt.toISOString(),
+        round,
+        chain: info.hash,
+        ciphertext,
+    };
+
+    // Saved before the code is shown, so nothing can leave you with a passcode and no lock
+    memoryLocks[name] = lock;
+    saveLocks();
+    render();
+    form.reset();
+    syncForm();
+
+    $("save-status").textContent = "";
+    $("save-show").disabled = true;
+    const saved = (msg) => {
+        $("save-status").textContent = msg;
+        $("save-show").disabled = false;
+    };
+    $("save-download").onclick = () => {
+        download(lock);
+        saved("Downloaded. Move it somewhere safe, like an email to yourself.");
+    };
+    $("save-copy").onclick = async () => {
+        try {
+            await navigator.clipboard.writeText(JSON.stringify(lock, null, 2));
+            saved("Copied. Paste it somewhere safe, like an email to yourself.");
+        } catch {
+            $("save-status").textContent = "Couldn't copy here. Use Download instead.";
+        }
+    };
+    $("save-show").onclick = () => {
+        $("save-dialog").close();
+        showCode(`${name} · opens ${fmt(unlockAt)}`, code,
+            "Enter it (twice) now. Don't read it out or try to remember it.");
+        code = null;
+    };
+    $("save-dialog").showModal();
+}
+
+// The code only exists until "Show the code"; Escape would lose it, so this dialog can't be dismissed
+$("save-dialog").addEventListener("cancel", (ev) => ev.preventDefault());
+
+// Lock list
+
+function render() {
+    const list = $("locks");
+    const locks = Object.values(memoryLocks).sort((a, b) => a.name.localeCompare(b.name));
+    list.replaceChildren();
+    if (!locks.length) {
+        list.innerHTML = '<p class="empty">No locks yet. Create one above, or import a lock file.</p>';
+        return;
+    }
+    for (const l of locks) {
+        const ms = new Date(l.unlockAt) - Date.now();
+        const row = document.createElement("div");
+        row.className = "lock";
+        row.innerHTML = `
+            <div>
+                <div class="lock-name"></div>
+                <div class="lock-meta"></div>
+                <div class="lock-meta state"></div>
+            </div>
+            <div class="lock-actions">
+                <button type="button" class="primary" data-act="open">Open</button>
+                <button type="button" data-act="download">Download</button>
+                <button type="button" class="danger" data-act="remove">Remove</button>
+            </div>`;
+        row.querySelector(".lock-name").textContent = l.name;
+        row.querySelectorAll(".lock-meta")[0].textContent = `${l.kind} · opens ${fmt(new Date(l.unlockAt))}`;
+        const state = row.querySelector(".state");
+        state.textContent = ms > 0 ? `Locked, ${left(ms)} left` : "Ready to open";
+        state.classList.toggle("state-ready", ms <= 0);
+        const openBtn = row.querySelector("[data-act=open]");
+        openBtn.disabled = ms > 0;
+        openBtn.onclick = () => openLock(l, openBtn);
+        row.querySelector("[data-act=download]").onclick = () => download(l);
+        row.querySelector("[data-act=remove]").onclick = () => removeLock(l);
+        list.append(row);
+    }
+}
+
+async function openLock(l, btn) {
+    $("list-error").textContent = "";
+    btn.disabled = true;
+    btn.textContent = "Opening…";
+    try {
+        const code = await timelockDecrypt(l.ciphertext, mainnetClient());
+        showCode(l.name, code.toString(), "Change or turn off the passcode now if you're done with this lock.");
+    } catch (err) {
+        $("list-error").textContent = /too early/i.test(err.message)
+            ? `drand hasn't published round ${l.round} yet. Try again in a minute.`
+            : `Couldn't open "${l.name}": ${err.message}. Check your connection: the key comes from the drand network.`;
+    } finally {
+        btn.textContent = "Open";
+        btn.disabled = false;
+    }
+}
+
+function removeLock(l) {
+    const locked = new Date(l.unlockAt) > Date.now();
+    const msg = locked
+        ? `"${l.name}" is still locked. If you're using its code and have no other copy of the lock file, the code is gone for good. Remove it from this browser?`
+        : `Remove "${l.name}" from this browser? Open it first if you still need the code.`;
+    if (!confirm(msg)) return;
+    delete memoryLocks[l.name];
+    saveLocks();
+    render();
+}
+
+$("import").addEventListener("change", async (e) => {
+    $("list-error").textContent = "";
+    const problems = [];
+    for (const file of e.target.files) {
+        try {
+            const l = JSON.parse(await file.text());
+            if (!isLock(l)) throw new Error("not a lock file");
+            if (memoryLocks[l.name] && memoryLocks[l.name].ciphertext !== l.ciphertext) throw new Error(`a different lock called "${l.name}" is already here`);
+            memoryLocks[l.name] = l;
+        } catch (err) {
+            problems.push(`${file.name}: ${err.message}`);
+        }
+    }
+    e.target.value = "";
+    saveLocks();
+    render();
+    if (problems.length) $("list-error").textContent = `Couldn't import ${problems.join("; ")}.`;
+});
+
+loadLocks();
+saveLocks();
+render();
+setInterval(render, 30e3);
+</script>
+</body>
+</html>

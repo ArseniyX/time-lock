@@ -1,0 +1,22 @@
+{
+  "name": "time-lock",
+  "version": "1.0.0",
+  "description": "Lock a random code until a set time with drand timelock encryption",
+  "main": "timelock.js",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "tlock-js": "^0.9.0"
+  },
+  "type": "module",
+  "bin": {
+    "timelock": "timelock.js"
+  },
+  "private": true,
+  "devDependencies": {
+    "esbuild": "^0.25.10"
+  },
+  "scripts": {
+    "build:web": "esbuild node_modules/tlock-js/index.js --bundle --format=esm --platform=browser --minify --legal-comments=none --outfile=web/tlock.js"
+  }
+}
