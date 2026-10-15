@@ -84,11 +84,6 @@ input, select {
 }
 input[type="text"] { width: 100%; }
 input[type="number"] { width: 90px; }
-.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 8px; }
-.seg label { margin: 0; font-weight: 500; padding: 6px 14px; cursor: pointer; }
-.seg input { position: absolute; opacity: 0; pointer-events: none; }
-.seg label:has(input:checked) { background: var(--accent); color: var(--accent-text); }
-.seg label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 button, .btn {
     font: inherit;
@@ -142,6 +137,28 @@ dialog .row { margin-top: 16px; }
     word-break: break-all;
 }
 .code.long { font-size: clamp(1.1rem, 4.5vw, 1.8rem); letter-spacing: 0.08em; }
+[hidden] { display: none !important; }
+fieldset { border: 0; padding: 0; margin: 0 0 22px; min-width: 0; }
+legend, .field > label { display: block; font-weight: 600; font-size: 0.95rem; margin-bottom: 10px; padding: 0; }
+.field { margin-bottom: 22px; }
+.sub { margin-top: 12px; }
+.choices { display: grid; gap: 8px; }
+.choice, .chip { margin: 0; font-weight: 500; cursor: pointer; }
+.choice input, .chip input { position: absolute; opacity: 0; pointer-events: none; }
+.choice span {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;
+}
+.choice small { color: var(--muted); font-size: 0.85rem; }
+.choice:has(input:checked) span { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; }
+.chip:has(input:checked) { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.choice:has(input:focus-visible) span, .chip:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.summary { background: var(--code-bg); border-radius: 8px; padding: 10px 12px; font-size: 0.95rem; }
+.steps { padding-left: 20px; margin: 0 0 24px; color: var(--muted); font-size: 0.95rem; }
+.steps li { margin-bottom: 4px; }
+.steps strong { color: var(--text); font-weight: 600; }
 footer { color: var(--muted); font-size: 0.85rem; }
 </style>
 </head>
@@ -155,47 +172,72 @@ footer { color: var(--muted); font-size: 0.85rem; }
     <p class="notice" id="storage-notice" hidden>This browser isn't keeping data for this page, so locks are only
         kept until you close it. Download every lock file.</p>
 
+    <ol class="steps">
+        <li><strong>Create a lock.</strong> The page makes a random code you've never seen.</li>
+        <li><strong>Save the lock file, then set the code</strong> as your Screen Time passcode (or password).</li>
+        <li><strong>Come back after the time is up</strong> and open the lock to get the code.</li>
+    </ol>
+
     <section class="card">
         <h2>New lock</h2>
         <form id="new-form" novalidate>
-            <div class="field">
-                <label for="name">Name</label>
-                <input type="text" id="name" placeholder="screentime" autocomplete="off" spellcheck="false" required>
-            </div>
+            <fieldset class="field">
+                <legend>What is the code for?</legend>
+                <div class="choices">
+                    <label class="choice"><input type="radio" name="preset" value="screentime" checked>
+                        <span><strong>Screen Time passcode</strong><small>4 digits</small></span></label>
+                    <label class="choice"><input type="radio" name="preset" value="admin">
+                        <span><strong>Admin password</strong><small>20 letters and numbers</small></span></label>
+                    <label class="choice"><input type="radio" name="preset" value="custom">
+                        <span><strong>Something else</strong><small>Choose the type and length</small></span></label>
+                </div>
+                <div class="sub" id="custom-kind" hidden>
+                    <div class="row">
+                        <select id="kind" aria-label="Code type">
+                            <option value="digits">Digits only</option>
+                            <option value="password">Letters and numbers</option>
+                        </select>
+                        <input type="number" id="length" value="6" aria-label="Length">
+                        <span id="length-hint" class="hint"></span>
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset class="field">
+                <legend>How long should it stay locked?</legend>
+                <div class="chips">
+                    <label class="chip"><input type="radio" name="dur" value="86400000" checked>1 day</label>
+                    <label class="chip"><input type="radio" name="dur" value="259200000">3 days</label>
+                    <label class="chip"><input type="radio" name="dur" value="604800000">1 week</label>
+                    <label class="chip"><input type="radio" name="dur" value="1209600000">2 weeks</label>
+                    <label class="chip"><input type="radio" name="dur" value="2592000000">30 days</label>
+                    <label class="chip"><input type="radio" name="dur" value="custom">Other…</label>
+                </div>
+                <div class="sub" id="custom-dur" hidden>
+                    <div class="row">
+                        <input type="number" id="amount" min="1" value="12" aria-label="Amount">
+                        <select id="unit" aria-label="Unit">
+                            <option value="60000">minutes</option>
+                            <option value="3600000" selected>hours</option>
+                            <option value="86400000">days</option>
+                            <option value="604800000">weeks</option>
+                        </select>
+                        <span class="hint">or until</span>
+                        <input type="datetime-local" id="date" aria-label="Unlock date and time">
+                    </div>
+                    <p class="hint">A date, if you pick one, is used instead of the amount.</p>
+                </div>
+                <p class="hint">New to this? Start with a day, then go longer once you trust it.</p>
+            </fieldset>
 
             <div class="field">
-                <label>Opens</label>
-                <div class="seg" role="radiogroup">
-                    <label><input type="radio" name="when" value="in" checked>In</label>
-                    <label><input type="radio" name="when" value="on">On date</label>
-                </div>
-                <div class="row" id="when-in">
-                    <input type="number" id="amount" min="1" value="14" aria-label="Amount">
-                    <select id="unit" aria-label="Unit">
-                        <option value="60000">minutes</option>
-                        <option value="3600000">hours</option>
-                        <option value="86400000" selected>days</option>
-                        <option value="604800000">weeks</option>
-                    </select>
-                </div>
-                <div class="row" id="when-on" hidden>
-                    <input type="datetime-local" id="date" aria-label="Unlock date and time">
-                </div>
+                <label for="name">Label</label>
+                <input type="text" id="name" autocomplete="off" spellcheck="false" required>
+                <p class="hint">To tell your locks apart. Also the name of the lock file.</p>
             </div>
 
-            <div class="field">
-                <label>Code</label>
-                <div class="seg" role="radiogroup">
-                    <label><input type="radio" name="kind" value="digits" checked>Digits</label>
-                    <label><input type="radio" name="kind" value="password">Password</label>
-                </div>
-                <div class="row">
-                    <input type="number" id="length" value="4" aria-label="Length">
-                    <span id="length-hint" class="hint"></span>
-                </div>
-            </div>
-
-            <button type="submit" class="primary">Create lock…</button>
+            <p class="summary" id="summary" aria-live="polite"></p>
+            <button type="submit" class="primary">Create lock</button>
             <div class="error" id="form-error" role="alert"></div>
         </form>
     </section>
@@ -341,44 +383,70 @@ $("code-dialog").addEventListener("close", () => { $("code-value").textContent =
 // New lock form
 
 const form = $("new-form");
-const whenMode = () => form.querySelector("input[name=when]:checked").value;
-const kindMode = () => form.querySelector("input[name=kind]:checked").value;
+const checked = (name) => form.querySelector(`input[name=${name}]:checked`).value;
+const PRESETS = { screentime: ["digits", 4], admin: ["password", 20] };
+let nameTouched = false;
 
-function syncForm() {
-    $("when-in").hidden = whenMode() !== "in";
-    $("when-on").hidden = whenMode() !== "on";
-    const pw = kindMode() === "password";
-    $("length").min = pw ? 8 : 4;
-    $("length").max = pw ? 64 : 12;
-    $("length-hint").textContent = pw ? "characters (8–64), for an admin password" : "digits (4–12). Screen Time uses 4";
+function codeSpec() {
+    const preset = checked("preset");
+    if (PRESETS[preset]) return PRESETS[preset];
+    return [$("kind").value, Number($("length").value)];
 }
 
-form.querySelectorAll("input[name=kind]").forEach((r) => r.addEventListener("change", () => {
-    $("length").value = kindMode() === "password" ? 20 : 4;
+function unlockTime() {
+    const dur = checked("dur");
+    if (dur !== "custom") return new Date(Date.now() + Number(dur));
+    if ($("date").value) return new Date($("date").value);
+    const amount = Number($("amount").value);
+    return amount > 0 ? new Date(Date.now() + amount * Number($("unit").value)) : new Date(NaN);
+}
+
+function freeName(base) {
+    let name = base, i = 2;
+    while (memoryLocks[name]) name = `${base}-${i++}`;
+    return name;
+}
+
+function describe(kind, length) {
+    return kind === "password" ? `${length}-character password` : `${length}-digit code`;
+}
+
+function syncForm() {
+    const preset = checked("preset");
+    $("custom-kind").hidden = preset !== "custom";
+    $("custom-dur").hidden = checked("dur") !== "custom";
+    const pw = $("kind").value === "password";
+    $("length").min = pw ? 8 : 4;
+    $("length").max = pw ? 64 : 12;
+    $("length-hint").textContent = pw ? "characters (8–64)" : "digits (4–12)";
+    if (!nameTouched) $("name").value = freeName(preset === "custom" ? "lock" : preset);
+
+    const [kind, length] = codeSpec();
+    const at = unlockTime();
+    $("summary").textContent = isNaN(at)
+        ? "Pick when the lock should open."
+        : `You'll get a random ${describe(kind, length)}, hidden until ${fmt(at)}.`;
+}
+
+form.addEventListener("input", (e) => {
+    if (e.target.id === "name") nameTouched = $("name").value.trim() !== "";
+    if (e.target.id === "kind") $("length").value = $("kind").value === "password" ? 20 : 6;
+    if (e.target.id === "amount" || e.target.id === "unit") $("date").value = "";
     syncForm();
-}));
-form.querySelectorAll("input[name=when]").forEach((r) => r.addEventListener("change", syncForm));
-syncForm();
+});
+setInterval(syncForm, 30e3);
 
 function readForm() {
     const name = $("name").value.trim();
-    if (!name) throw new Error("Give the lock a name, like screentime.");
-    if (!/^[\w.-]+$/.test(name)) throw new Error("Use letters, digits, '.', '_' or '-' in the name.");
-    if (memoryLocks[name]) throw new Error(`A lock called "${name}" already exists.`);
+    if (!name) throw new Error("Give the lock a label, like screentime.");
+    if (!/^[\w.-]+$/.test(name)) throw new Error("Use only letters, digits, '.', '_' or '-' in the label (no spaces).");
+    if (memoryLocks[name]) throw new Error(`You already have a lock called "${name}". Pick another label.`);
 
-    let unlockAt;
-    if (whenMode() === "in") {
-        const amount = Number($("amount").value);
-        if (!(amount > 0)) throw new Error("Enter how long to lock it for.");
-        unlockAt = new Date(Date.now() + amount * Number($("unit").value));
-    } else {
-        unlockAt = new Date($("date").value);
-        if (isNaN(unlockAt)) throw new Error("Pick an unlock date and time.");
-    }
+    const unlockAt = unlockTime();
+    if (isNaN(unlockAt)) throw new Error("Pick when the lock should open.");
     if (unlockAt - Date.now() < 60e3) throw new Error("Pick an unlock time at least a minute from now.");
 
-    const kind = kindMode();
-    const length = Number($("length").value);
+    const [kind, length] = codeSpec();
     const [lo, hi] = kind === "password" ? [8, 64] : [4, 12];
     if (!(Number.isInteger(length) && length >= lo && length <= hi)) throw new Error(`Length must be from ${lo} to ${hi}.`);
     return { name, unlockAt, kind, length };
@@ -396,8 +464,7 @@ form.addEventListener("submit", (e) => {
         return;
     }
     const { name, unlockAt, kind, length } = pending;
-    const what = kind === "password" ? `${length}-character password` : `${length}-digit code`;
-    $("confirm-text").textContent = `New ${what} "${name}", locked until ${fmt(unlockAt)} (${left(unlockAt - Date.now())} from now).`;
+    $("confirm-text").textContent = `New ${describe(kind, length)} "${name}", locked until ${fmt(unlockAt)} (${left(unlockAt - Date.now())} from now).`;
     $("confirm-input").value = "";
     $("confirm-go").disabled = true;
     $("confirm-error").textContent = "";
@@ -433,7 +500,7 @@ async function createLock({ name, unlockAt, kind, length }) {
     const ciphertext = await timelockEncrypt(round, Buffer.from(code), client);
     const lock = {
         name,
-        kind: kind === "password" ? `${length}-character password` : `${length}-digit code`,
+        kind: describe(kind, length),
         lockedAt: new Date().toISOString(),
         unlockAt: unlockAt.toISOString(),
         round,
@@ -446,6 +513,7 @@ async function createLock({ name, unlockAt, kind, length }) {
     saveLocks();
     render();
     form.reset();
+    nameTouched = false;
     syncForm();
 
     $("save-status").textContent = "";
@@ -567,6 +635,7 @@ $("import").addEventListener("change", async (e) => {
 loadLocks();
 saveLocks();
 render();
+syncForm();
 setInterval(render, 30e3);
 </script>
 </body>
