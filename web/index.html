@@ -282,6 +282,7 @@ footer { color: var(--muted); font-size: 0.85rem; }
     <div class="row">
         <button type="button" id="save-download">Download file</button>
         <button type="button" id="save-copy">Copy as text</button>
+        <button type="button" id="save-copy-tv" title="Copy the ciphertext with its line breaks, ready to paste into timevault.drand.love">Copy for timevault</button>
     </div>
     <p class="hint" id="save-status"></p>
     <div class="row">
@@ -531,6 +532,14 @@ async function createLock({ name, unlockAt, kind, length }) {
         try {
             await navigator.clipboard.writeText(JSON.stringify(lock, null, 2));
             saved("Copied. Paste it somewhere safe, like an email to yourself.");
+        } catch {
+            $("save-status").textContent = "Couldn't copy here. Use Download instead.";
+        }
+    };
+    $("save-copy-tv").onclick = async () => {
+        try {
+            await navigator.clipboard.writeText(lock.ciphertext);
+            saved("Copied for timevault. Paste it somewhere safe; after the unlock time it opens at timevault.drand.love.");
         } catch {
             $("save-status").textContent = "Couldn't copy here. Use Download instead.";
         }
