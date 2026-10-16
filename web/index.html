@@ -252,9 +252,10 @@ footer { color: var(--muted); font-size: 0.85rem; }
     </section>
 
     <footer>
-        <p>Lock files work with the <code>timelock.js</code> command line tool too. After the unlock time, the
-            <code>ciphertext</code> in a lock file also opens at
-            <a href="https://timevault.drand.love" target="_blank" rel="noopener">timevault.drand.love</a>.</p>
+        <p>Lock files work with the <code>timelock.js</code> command line tool too. After the unlock time, a lock
+            also opens at <a href="https://timevault.drand.love" target="_blank" rel="noopener">timevault.drand.love</a>:
+            use <strong>Copy for timevault</strong> and paste it there. If you copy the <code>ciphertext</code> out of
+            the file by hand instead, change every <code>\n</code> into a real line break first.</p>
         <p>Start with short locks (a day, then a week) until you trust the setup.</p>
     </footer>
 </main>
@@ -569,6 +570,7 @@ function render() {
             <div class="lock-actions">
                 <button type="button" class="primary" data-act="open">Open</button>
                 <button type="button" data-act="download">Download</button>
+                <button type="button" data-act="copy" title="Copy the ciphertext with its line breaks, ready to paste into timevault.drand.love">Copy for timevault</button>
                 <button type="button" class="danger" data-act="remove">Remove</button>
             </div>`;
         row.querySelector(".lock-name").textContent = l.name;
@@ -580,6 +582,16 @@ function render() {
         openBtn.disabled = ms > 0;
         openBtn.onclick = () => openLock(l, openBtn);
         row.querySelector("[data-act=download]").onclick = () => download(l);
+        const copyBtn = row.querySelector("[data-act=copy]");
+        copyBtn.onclick = async () => {
+            try {
+                await navigator.clipboard.writeText(l.ciphertext);
+                copyBtn.textContent = "Copied";
+                setTimeout(() => { copyBtn.textContent = "Copy for timevault"; }, 2000);
+            } catch {
+                $("list-error").textContent = "Couldn't copy here. Download the file and copy the ciphertext from it instead.";
+            }
+        };
         row.querySelector("[data-act=remove]").onclick = () => removeLock(l);
         list.append(row);
     }

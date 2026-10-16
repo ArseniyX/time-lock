@@ -58,6 +58,8 @@ are the same format as `locks/<name>.json`, so the page and the script can open 
 If `locks/<name>.json` is gone, so is the code. Keep a copy somewhere else, for example by emailing it
 to yourself. Sharing it is safe: no one can read it before the unlock time. After that time, the
 `ciphertext` field also opens at [timevault.drand.love](https://timevault.drand.love) without this script.
+Paste it with real line breaks, not the `\n`s from the JSON, or timevault rejects it. Print it with
+`node -p 'require("./locks/<name>.json").ciphertext'`, or use **Copy for timevault** in the web version.
 
 Start with short locks (a day, then a week) until you trust the setup. A lost Screen Time passcode with
 recovery off means erasing the device.
