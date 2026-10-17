@@ -142,6 +142,8 @@ fieldset { border: 0; padding: 0; margin: 0 0 22px; min-width: 0; }
 legend, .field > label { display: block; font-weight: 600; font-size: 0.95rem; margin-bottom: 10px; padding: 0; }
 .field { margin-bottom: 22px; }
 .sub { margin-top: 12px; }
+.sub .in-use { border-color: var(--accent); }
+.sub .unused:not(:focus) { opacity: 0.45; }
 .choices { display: grid; gap: 8px; }
 .choice, .chip { margin: 0; font-weight: 500; cursor: pointer; }
 .choice input, .chip input { position: absolute; opacity: 0; pointer-events: none; }
@@ -423,6 +425,11 @@ function syncForm() {
     $("length-hint").textContent = pw ? "characters (8–64)" : "digits (4–12)";
     if (!nameTouched) $("name").value = freeName(preset === "custom" ? "lock" : preset);
 
+    // Show which of amount or date sets the unlock time (a date with no time counts as empty)
+    const byDate = $("date").value !== "";
+    for (const id of ["amount", "unit"]) $(id).className = byDate ? "unused" : "in-use";
+    $("date").className = byDate ? "in-use" : "unused";
+
     const [kind, length] = codeSpec();
     const at = unlockTime();
     $("summary").textContent = isNaN(at)
@@ -436,6 +443,8 @@ form.addEventListener("input", (e) => {
     if (e.target.id === "amount" || e.target.id === "unit") $("date").value = "";
     syncForm();
 });
+// A half-filled date fires no input event, so resync when focus leaves it
+form.addEventListener("focusout", syncForm);
 setInterval(syncForm, 30e3);
 
 function readForm() {
